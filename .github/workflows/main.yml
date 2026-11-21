@@ -22,7 +22,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            cmake_generator: "Visual Studio 17 2022"
+            cmake_generator: "Ninja" # <-- ИЗМЕНЕНО: Ninja надежнее и быстрее на GitHub Actions
             artifact_name: windows-x64
             vst3_path: "MySuperSynth_artefacts/Release/VST3/BM Synth.vst3"
           - os: macos-latest
