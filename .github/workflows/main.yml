@@ -1,3 +1,18 @@
+    - name: Sign Windows binary
+      if: runner.os == 'Windows'
+      uses: azure/trusted-signing-action@v0.3
+      with:
+        azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+        endpoint: https://eus.codesigning.azure.net/
+        code-signing-account-name: YourAccountName
+        certificate-profile-name: YourCertProfile
+        files-folder: build/MySuperSynth_artefacts/Release/VST3/
+        files-folder-filter: vst3
+        file-digest: SHA256
+        timestamp-rfc3161: http://timestamp.acs.microsoft.com
+        timestamp-digest: SHA256
 name: Build VST3 Plugin
 
 on:
