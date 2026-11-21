@@ -4,12 +4,11 @@ project(MySuperSynth VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Подключаем JUCE (предполагается, что он скачан в папку juce)
 add_subdirectory(juce)
 
 juce_add_plugin(MySuperSynth
     COMPANY_NAME "BlackMetalAudio"
-    PLUGIN_NAME "BM Synth Engine"
+    PLUGIN_NAME "BM Synth"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
@@ -27,4 +26,7 @@ target_sources(MySuperSynth PRIVATE
     Source/DSP/FXChain.cpp
     Source/DSP/FXChain.h)
 
-target_link_libraries(MySuperSynth PRIVATE juce::juce_audio_utils juce::juce_dsp)
+target_link_libraries(MySuperSynth PRIVATE 
+    juce::juce_audio_utils 
+    juce::juce_dsp
+    juce::juce_gui_extra)
