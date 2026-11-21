@@ -1,52 +1,74 @@
 #pragma once
 #include <JuceHeader.h>
 
-class Oscillator {
+class SynthVoice : public juce::MPESynthesiserVoice {
 public:
-    void prepare(const juce::dsp::ProcessSpec& spec) {
-        phase = 0.0;
-        sampleRate = spec.sampleRate;
+    SynthVoice() {
+        // Создаем "сочную" пилообразную волну с антиалиасингом
+        auto wave = juce::dsp::WaveTable::generateSawWave(512);
+        oscillator.initialise([](float x) { return std::sin(x); }, 512); // Заглушка, заменим на wave в prepare
     }
 
-    float process(float frequency, float shapeParam) {
-        // Простая реализация пилообразной волны с PWM для "жирности"
-        phase += frequency / sampleRate;
-        if (phase >= 1.0f) phase -= 1.0f;
+    void prepare(const juce::dsp::ProcessSpec& spec) {
+        oscillator.prepare(spec);
+        envelope.setSampleRate(spec.sampleRate);
         
-        // ShapeParam меняет скважность или форму волны
-        float output = std::sin(2.0f * juce::MathConstants<float>::pi * phase); 
-        output += 0.5f * std::sin(4.0f * juce::MathConstants<float>::pi * phase * shapeParam);
+        auto wave = juce::dsp::WaveTable::generateSawWave(512);
+        oscillator.initialise(wave);
+    }
+
+    bool isActive() const override { return envelope.isActive(); }
+
+    void noteStarted() override {
+        auto velocity = getCurrentlyPlayingNote().noteOnVelocity.asUnsignedFloat();
+        auto freq = getCurrentlyPlayingNote().getFrequencyInHertz();
         
-        return output * 0.5f; // Gain staging
+        oscillator.setFrequency(freq, true);
+        envelope.noteOn();
+        currentLevel = velocity;
+    }
+
+    void noteStopped(bool allowTailOff) override {
+        envelope.noteOff();
+        if (!allowTailOff) clearCurrentNote();
+    }
+
+    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
+        juce::dsp::AudioBlock<float> block(outputBuffer);
+        juce::dsp::ProcessContextReplacing<float> context(block.getSubBlock(startSample, numSamples));
+        
+        for (int i = 0; i < numSamples; ++i) {
+            float envVal = envelope.getNextSample();
+            float oscVal = oscillator.processSample(0.0f) * currentLevel * envVal;
+            
+            for (int ch = 0; ch < outputBuffer.getNumChannels(); ++ch) {
+                outputBuffer.addSample(ch, startSample + i, oscVal);
+            }
+        }
+        
+        if (!envelope.isActive()) clearCurrentNote();
     }
 
 private:
-    double phase = 0.0;
-    double sampleRate = 44100.0;
+    juce::dsp::Oscillator<float> oscillator;
+    juce::ADSR envelope;
+    float currentLevel = 0.5f;
 };
 
 class EngineCore {
 public:
     void prepare(const juce::dsp::ProcessSpec& spec) {
-        osc1.prepare(spec);
-        osc2.prepare(spec);
-        gain.setValue(0.5f);
+        synth.clearVoices();
+        for (int i = 0; i < 4; ++i) { // 4-голосная полифония
+            synth.addVoice(new SynthVoice());
+        }
+        synth.setCurrentPlaybackSampleRate(spec.sampleRate);
     }
 
-    void processBlock(juce::AudioBuffer<float>& buffer, const juce::MidiBuffer& midiMessages) {
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
-            auto* data = buffer.getWritePointer(channel);
-            for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
-                // Здесь должна быть логика Voice Management (Polyphony)
-                // Для упрощения делаем монофонический тестовый сигнал
-                float val = osc1.process(440.0f, 0.5f); 
-                val += osc2.process(442.0f, 0.2f); // Detune
-                data[sample] = val * gain.getCurrentValue();
-            }
-        }
+    void processMidi(const juce::MidiBuffer& midiMessages, juce::AudioBuffer<float>& buffer) {
+        synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     }
 
 private:
-    Oscillator osc1, osc2;
-    juce::SmoothedValue<float> gain;
+    juce::MPESynthesiser synth;
 };
