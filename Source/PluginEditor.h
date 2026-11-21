@@ -11,6 +11,7 @@ public:
         setColour(juce::TextButton::textColourOffId, juce::Colours::silver);
         setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF0a0a0a));
         setColour(juce::ComboBox::textColourId, juce::Colours::gold);
+        setColour(juce::ComboBox::arrowColourId, juce::Colours::gold);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour& backgroundColour,
