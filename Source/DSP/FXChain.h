@@ -11,8 +11,14 @@ public:
         delay.prepare(spec);
         reverb.prepare(spec);
         
-        delay.setMaximumDelayInSamples(44100 * 2); // 2 секунды
-        delay.setDelay(44100 * 0.5); // 500ms
+        delay.setMaximumDelayInSamples(spec.sampleRate * 2.0);
+        delay.setDelay(spec.sampleRate * 0.3);
+        
+        reverbParams.roomSize = 0.8f;
+        reverbParams.damping = 0.5f;
+        reverbParams.wetLevel = 0.3f;
+        reverbParams.dryLevel = 0.7f;
+        reverb.setParameters(reverbParams);
         
         setMode(FXMode::Digital);
     }
@@ -20,19 +26,19 @@ public:
     void setMode(FXMode mode) {
         currentMode = mode;
         if (mode == FXMode::Tube) {
-            drive.setGainLinear(2.0f);
-            waveshaper.functionToUse = [](float x) { return std::tanh(x * 3.0f); }; // Ламповый перегруз
-            reverbParameters.damping = 0.3f; // Темный, теплый хвост
+            drive.setGainLinear(2.5f);
+            waveshaper.functionToUse = [](float x) { return std::tanh(x * 4.0f); };
+            reverbParams.damping = 0.3f;
         } else if (mode == FXMode::Analog) {
-            drive.setGainLinear(1.2f);
-            waveshaper.functionToUse = [](float x) { return x * (1.5f - 0.5f * std::abs(x)); }; // Мягкая сатурация
-            reverbParameters.damping = 0.5f;
+            drive.setGainLinear(1.5f);
+            waveshaper.functionToUse = [](float x) { return x * (1.5f - 0.5f * std::abs(x)); };
+            reverbParams.damping = 0.5f;
         } else {
             drive.setGainLinear(1.0f);
-            waveshaper.functionToUse = [](float x) { return x; }; // Чистый цифровой
-            reverbParameters.damping = 0.8f; // Яркий
+            waveshaper.functionToUse = [](float x) { return x; };
+            reverbParams.damping = 0.8f;
         }
-        reverb.setParameters(reverbParameters);
+        reverb.setParameters(reverbParams);
     }
 
     void process(juce::AudioBuffer<float>& buffer) {
@@ -51,5 +57,5 @@ private:
     juce::dsp::WaveShaper<float> waveshaper;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd> delay;
     juce::dsp::Reverb reverb;
-    juce::dsp::Reverb::Parameters reverbParameters;
+    juce::dsp::Reverb::Parameters reverbParams;
 };
