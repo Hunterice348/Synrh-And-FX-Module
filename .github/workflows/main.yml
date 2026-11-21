@@ -44,26 +44,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
-          libasound2-dev \
-          libjack-jackd2-dev \
-          ladspa-sdk \
-          libcurl4-openssl-dev \
-          libfreetype6-dev \
-          libx11-dev \
-          libxcomposite-dev \
-          libxcursor-dev \
-          libxext-dev \
-          libxinerama-dev \
-          libxrandr-dev \
-          libxrender-dev \
-          libwebkit2gtk-4.1-dev \
-          libglu1-mesa-dev \
-          mesa-common-dev
+        sudo apt-get install -y build-essential cmake ninja-build pkg-config libasound2-dev libjack-jackd2-dev libfreetype6-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev mesa-common-dev
 
     - name: Cache JUCE
       id: cache-juce
@@ -71,35 +52,23 @@ jobs:
       with:
         path: juce
         key: juce-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
-        restore-keys: |
-          juce-${{ runner.os }}-
+        restore-keys: juce-${{ runner.os }}-
 
     - name: Clone JUCE framework
       if: steps.cache-juce.outputs.cache-hit != 'true'
-      run: |
-        git clone --depth 1 --branch 7.0.9 https://github.com/juce-framework/JUCE.git juce
+      run: git clone --depth 1 --branch 8.0.4 https://github.com/juce-framework/JUCE.git juce
 
     - name: Configure CMake
-      run: |
-        cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+      run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
     - name: Build
-      run: |
-        cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+      run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
 
     - name: Upload VST3 artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PLUGIN_NAME }}-${{ matrix.artifact_name }}
         path: build/${{ matrix.vst3_path }}
-        retention-days: 30
-
-    - name: Upload Standalone artifact
-      uses: actions/upload-artifact@v4
-      if: runner.os != 'Linux'
-      with:
-        name: ${{ env.PLUGIN_NAME }}-Standalone-${{ matrix.artifact_name }}
-        path: build/${{ env.PROJECT_NAME }}_artefacts/Release/Standalone/
         retention-days: 30
 
   release:
@@ -109,31 +78,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
-
     - name: Package for Windows
-      run: |
-        cd artifacts
-        zip -r ../${{ env.PLUGIN_NAME }}-Windows.zip *windows-x64*
-        cd ..
-
+      run: cd artifacts && zip -r ../${{ env.PLUGIN_NAME }}-Windows.zip *windows-x64* && cd ..
     - name: Package for macOS
-      run: |
-        cd artifacts
-        zip -r ../${{ env.PLUGIN_NAME }}-macOS.zip *macos-universal*
-        cd ..
-
+      run: cd artifacts && zip -r ../${{ env.PLUGIN_NAME }}-macOS.zip *macos-universal* && cd ..
     - name: Package for Linux
-      run: |
-        cd artifacts
-        tar -czf ../${{ env.PLUGIN_NAME }}-Linux.tar.gz *linux-x64*
-        cd ..
-
+      run: cd artifacts && tar -czf ../${{ env.PLUGIN_NAME }}-Linux.tar.gz *linux-x64* && cd ..
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
       with:
