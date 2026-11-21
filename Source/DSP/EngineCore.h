@@ -1,42 +1,40 @@
 #pragma once
 #include <JuceHeader.h>
 
-class SynthVoice : public juce::MPESynthesiserVoice {
+class SynthVoice : public juce::SynthesiserVoice {
 public:
     SynthVoice() {
-        // Создаем "сочную" пилообразную волну с антиалиасингом
-        auto wave = juce::dsp::WaveTable::generateSawWave(512);
-        oscillator.initialise([](float x) { return std::sin(x); }, 512); // Заглушка, заменим на wave в prepare
+        oscillator.initialise([](float x) { return std::sin(x) + 0.5f * std::sin(2.0f * x); }, 128);
     }
 
-    void prepare(const juce::dsp::ProcessSpec& spec) {
+    void prepare(const juce::dsp::ProcessSpec& spec) override {
         oscillator.prepare(spec);
         envelope.setSampleRate(spec.sampleRate);
-        
-        auto wave = juce::dsp::WaveTable::generateSawWave(512);
-        oscillator.initialise(wave);
     }
 
-    bool isActive() const override { return envelope.isActive(); }
+    bool canPlaySound(juce::SynthesiserSound* sound) override {
+        return dynamic_cast<juce::SynthesiserSound*> (sound) != nullptr;
+    }
 
-    void noteStarted() override {
-        auto velocity = getCurrentlyPlayingNote().noteOnVelocity.asUnsignedFloat();
-        auto freq = getCurrentlyPlayingNote().getFrequencyInHertz();
-        
-        oscillator.setFrequency(freq, true);
+    void startNote(int midiNoteNumber, float velocity, juce::SynthesiserSound* /*sound*/, int /*currentPitchWheelPosition*/) override {
+        oscillator.setFrequency(juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber), true);
         envelope.noteOn();
         currentLevel = velocity;
     }
 
-    void noteStopped(bool allowTailOff) override {
-        envelope.noteOff();
-        if (!allowTailOff) clearCurrentNote();
+    void stopNote(float /*velocity*/, bool allowTailOff) override {
+        if (allowTailOff) {
+            envelope.noteOff();
+        } else {
+            envelope.reset();
+            clearCurrentNote();
+        }
     }
 
+    void pitchWheelMoved(int /*newValue*/) override {}
+    void controllerMoved(int /*controllerNumber*/, int /*newValue*/) override {}
+
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override {
-        juce::dsp::AudioBlock<float> block(outputBuffer);
-        juce::dsp::ProcessContextReplacing<float> context(block.getSubBlock(startSample, numSamples));
-        
         for (int i = 0; i < numSamples; ++i) {
             float envVal = envelope.getNextSample();
             float oscVal = oscillator.processSample(0.0f) * currentLevel * envVal;
@@ -46,7 +44,10 @@ public:
             }
         }
         
-        if (!envelope.isActive()) clearCurrentNote();
+        if (!envelope.isActive()) {
+            envelope.reset();
+            clearCurrentNote();
+        }
     }
 
 private:
@@ -59,7 +60,7 @@ class EngineCore {
 public:
     void prepare(const juce::dsp::ProcessSpec& spec) {
         synth.clearVoices();
-        for (int i = 0; i < 4; ++i) { // 4-голосная полифония
+        for (int i = 0; i < 8; ++i) {
             synth.addVoice(new SynthVoice());
         }
         synth.setCurrentPlaybackSampleRate(spec.sampleRate);
@@ -70,5 +71,5 @@ public:
     }
 
 private:
-    juce::MPESynthesiser synth;
+    juce::Synthesiser synth;
 };
